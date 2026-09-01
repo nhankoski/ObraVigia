@@ -1,0 +1,27 @@
+{
+  "produto": "ObraVigia",
+  "etapa": 230,
+  "tipo": "mapa_rota_otimizada",
+  "origem": "IFC",
+  "projetos": 8,
+  "ipi_total": 513.3333333333334,
+  "tempo_viagem_table_min": 96.81166666666665,
+  "tempo_viagem_route_min": 96.81166666666667,
+  "tempo_servico_min": 360.0,
+  "tempo_total_otimizacao_min": 456.81166666666667,
+  "folga_min": 23.188333333333333,
+  "distancia_table_km": 100.7972,
+  "distancia_route_km": 100.7972,
+  "diferenca_table_route": {
+    "tempo_min": 1.4210854715202004e-14,
+    "distancia_km": 0.0
+  },
+  "osrm": {
+    "servico": "Route",
+    "continue_straight": false,
+    "geometria": "geojson"
+  },
+  "otimizacao_nova": false,
+  "algoritmo_origem": "etapa_229",
+  "status_otimalidade": "SOLUCAO_HEURISTICA_SEM_GARANTIA_DE_OTIMO_GLOBAL"
+}
