@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.pytest_cache/
+
+# Ambientes
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Streamlit local
+.streamlit/secrets.toml
+
+# Logs
+*.log
+
+# Checkpoints e temporários
+*.zip
+_app_validacao_*.py
+app_*_antes_*.py
+motor_*_antes_*.py

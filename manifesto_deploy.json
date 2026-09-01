@@ -1,0 +1,21 @@
+{
+  "produto": "ObraVigia",
+  "versao_aplicacao": "260R2",
+  "etapa": "262R",
+  "finalidade": "pacote_github_streamlit_community_cloud",
+  "python_origem": "3.13",
+  "requirements": {
+    "streamlit": "1.62.0",
+    "streamlit-folium": "0.27.4",
+    "folium": "0.20.0",
+    "pandas": "2.2.3",
+    "numpy": "2.1.3",
+    "requests": "2.32.4",
+    "numba": "0.61.2"
+  },
+  "quantidade_arquivos_dados": 11,
+  "tamanho_total_bytes": 3197097,
+  "segredos_detectados": 0,
+  "app_original_alterado": false,
+  "validacao_geral": true
+}
