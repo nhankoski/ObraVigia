@@ -2955,6 +2955,13 @@ with st.sidebar:
 
         except Exception as erro:
 
+            print(
+                "ERRO_NOMINATIM:",
+                type(erro).__name__,
+                str(erro),
+                flush=True
+            )
+
             st.session_state[
                 "candidatos_origem"
             ] = []
