@@ -3347,95 +3347,6 @@ with st.sidebar:
     )
 
 
-    if st.button(
-        "Gerar planejamento",
-        type="primary",
-        width="stretch"
-    ):
-
-        try:
-
-            with st.spinner(
-                "Analisando as obras e calculando "
-                "uma nova rota..."
-            ):
-
-                resultado_dinamico = planejar_rota(
-                    caminho_base=(
-                        Path(__file__).resolve().parent
-                        /
-                        "dados"
-                        /
-                        "base_sc_rota_automatica_2703.csv"
-                    ),
-                    origem_lat=float(
-                        st.session_state[
-                            "origem_selecionada_lat"
-                        ]
-                    ),
-                    origem_lon=float(
-                        st.session_state[
-                            "origem_selecionada_lon"
-                        ]
-                    ),
-                    jornada_min=480.0,
-                    servico_padrao_min=45.0,
-                    seed=20260901,
-                    gerar_geometria=True
-                )
-
-
-            st.session_state[
-                "planejamento_dinamico"
-            ] = resultado_dinamico
-
-
-            st.session_state[
-                "planejamento_dinamico_origem"
-            ] = {
-                "nome":
-                    st.session_state[
-                        "origem_selecionada_nome"
-                    ],
-
-                "endereco":
-                    st.session_state[
-                        "origem_selecionada_endereco"
-                    ],
-
-                "latitude":
-                    float(
-                        st.session_state[
-                            "origem_selecionada_lat"
-                        ]
-                    ),
-
-                "longitude":
-                    float(
-                        st.session_state[
-                            "origem_selecionada_lon"
-                        ]
-                    )
-            }
-
-
-            st.rerun()
-
-
-        except Exception as erro:
-
-            st.error(
-                "Não foi possível gerar o planejamento "
-                "neste momento."
-            )
-
-            st.caption(
-                "O serviço de roteamento pode estar "
-                "temporariamente indisponível. "
-                "Tente novamente em alguns instantes."
-            )
-
-
     st.divider()
 
 
@@ -3467,43 +3378,6 @@ with st.sidebar:
 
     st.divider()
 
-
-
-
-# ============================================================
-# A origem já pode ser escolhida pelo usuário.
-#
-# Nesta etapa, verificamos se ela é diferente da origem
-# do cenário demonstrativo.
-# ============================================================
-
-origem_diferente_exemplo = bool(
-    abs(
-        float(
-            st.session_state[
-                "origem_selecionada_lat"
-            ]
-        )
-        -
-        LAT_ORIGEM
-    )
-    >
-    0.00001
-
-    or
-
-    abs(
-        float(
-            st.session_state[
-                "origem_selecionada_lon"
-            ]
-        )
-        -
-        LON_ORIGEM
-    )
-    >
-    0.00001
-)
 
 
 
@@ -4282,15 +4156,6 @@ st.caption(
     "Cenário demonstrativo de Santa Catarina • "
     "dados públicos processados em 31/08/2026"
 )
-
-
-if origem_diferente_exemplo:
-
-    st.info(
-        "Novo ponto de partida selecionado. "
-        "Clique em “Gerar planejamento” na barra lateral "
-        "para calcular uma nova rota a partir dele."
-    )
 
 
 # ============================================================
