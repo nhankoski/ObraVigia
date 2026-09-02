@@ -2651,15 +2651,24 @@ def buscar_enderecos_em_sc(
 
             "limit":
                 5,
-
+        
             "lang":
                 "pt",
 
             "countrycode":
                 "BR",
-
-            "bbox":
-                SC_BBOX
+        
+            "lat":
+                -27.3,
+        
+            "lon":
+                -50.2,
+        
+            "zoom":
+                6,
+        
+            "location_bias_scale":
+                0.15
         },
         headers={
             "User-Agent":
