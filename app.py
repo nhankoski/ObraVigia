@@ -2643,36 +2643,51 @@ def buscar_enderecos_em_sc(
         return []
 
 
-    resposta = requests.get(
-        PHOTON_URL,
-        params={
-            "q":
-                consulta,
-        
-            "limit":
-                10,
-        
-            "lang":
-                "pt",
-        
-            "lat":
-                -27.3,
-        
-            "lon":
-                -50.2,
-        
-            "location_bias_scale":
-                0.15
-        },
-        headers={
-            "User-Agent":
-                PHOTON_USER_AGENT
-        },
-        timeout=15
+resposta = requests.get(
+    PHOTON_URL,
+    params={
+        "q":
+            consulta,
+
+        "limit":
+            10,
+
+        "lang":
+            "pt",
+
+        "lat":
+            -27.3,
+
+        "lon":
+            -50.2,
+
+        "location_bias_scale":
+            0.15
+    },
+    headers={
+        "User-Agent":
+            PHOTON_USER_AGENT
+    },
+    timeout=15
+)
+
+
+if not resposta.ok:
+
+    print(
+        "PHOTON_STATUS:",
+        resposta.status_code,
+        flush=True
+    )
+
+    print(
+        "PHOTON_RESPOSTA:",
+        resposta.text[:1000],
+        flush=True
     )
 
 
-    resposta.raise_for_status()
+resposta.raise_for_status()
 
 
     dados = (
