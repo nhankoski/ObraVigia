@@ -5,8 +5,6 @@ from datetime import date, datetime, timedelta, time as dt_time
 import math
 import json
 import html
-import threading
-import time
 
 import requests
 
@@ -2616,11 +2614,13 @@ PHOTON_USER_AGENT = (
 )
 
 
-# Limites aproximados de Santa Catarina:
-# minLon,minLat,maxLon,maxLat
-SC_BBOX = (
-    "-53.9,-29.5,-48.2,-25.8"
-)
+# Limites aproximados de Santa Catarina.
+# A filtragem final é feita localmente mesmo quando
+# o serviço de geocodificação devolve resultados de fora.
+SC_LON_MIN = -53.9
+SC_LON_MAX = -48.2
+SC_LAT_MIN = -29.5
+SC_LAT_MAX = -25.8
 
 
 @st.cache_data(
@@ -2643,61 +2643,132 @@ def buscar_enderecos_em_sc(
         return []
 
 
-resposta = requests.get(
-    PHOTON_URL,
-    params={
-        "q":
-            consulta,
-
-        "limit":
-            10,
-
-        "lang":
-            "pt",
-
-        "lat":
-            -27.3,
-
-        "lon":
-            -50.2,
-
-        "location_bias_scale":
-            0.15
-    },
-    headers={
+    headers = {
         "User-Agent":
-            PHOTON_USER_AGENT
-    },
-    timeout=15
-)
+            PHOTON_USER_AGENT,
+
+        "Accept-Language":
+            "pt-BR,pt;q=0.9"
+    }
 
 
-if not resposta.ok:
+    # A página pública do Photon documenta q, limit,
+    # lang, lat e lon. A primeira tentativa usa esses
+    # parâmetros para favorecer resultados em SC.
+    #
+    # Algumas instalações podem aceitar um conjunto
+    # mais restrito. Se houver HTTP 400/422, fazemos
+    # uma única nova tentativa apenas com q e limit.
+    tentativas = [
+        {
+            "q":
+                consulta,
 
-    print(
-        "PHOTON_STATUS:",
-        resposta.status_code,
-        flush=True
-    )
+            "limit":
+                20,
 
-    print(
-        "PHOTON_RESPOSTA:",
-        resposta.text[:1000],
-        flush=True
-    )
+            "lang":
+                "pt",
+
+            "lat":
+                -27.3,
+
+            "lon":
+                -50.2
+        },
+        {
+            "q":
+                consulta,
+
+            "limit":
+                20
+        }
+    ]
 
 
-resposta.raise_for_status()
+    dados = None
+    ultimo_erro = None
 
 
-    dados = (
-        resposta.json()
-        or
-        {}
-    )
+    for indice, params in enumerate(
+        tentativas
+    ):
+
+        try:
+
+            resposta = requests.get(
+                PHOTON_URL,
+                params=params,
+                headers=headers,
+                timeout=15
+            )
+
+
+            if (
+                indice == 0
+                and
+                resposta.status_code
+                in
+                {
+                    400,
+                    422
+                }
+            ):
+
+                continue
+
+
+            resposta.raise_for_status()
+
+
+            dados = (
+                resposta.json()
+                or
+                {}
+            )
+
+
+            break
+
+
+        except requests.RequestException as erro:
+
+            ultimo_erro = erro
+
+
+            if indice == 0:
+
+                continue
+
+
+            raise
+
+
+        except ValueError:
+
+            # Resposta HTTP sem JSON válido.
+            # Na primeira tentativa ainda podemos usar
+            # a chamada mínima como fallback.
+            if indice == 0:
+
+                continue
+
+
+            raise
+
+
+    if dados is None:
+
+        if ultimo_erro is not None:
+
+            raise ultimo_erro
+
+
+        return []
 
 
     candidatos_sc = []
+    chaves_vistas = set()
 
 
     for item in dados.get(
@@ -2749,19 +2820,28 @@ resposta.raise_for_status()
                 ]
             )
 
-        except Exception:
+        except (
+            TypeError,
+            ValueError
+        ):
 
             continue
 
 
-        # Segunda barreira:
-        # garante que o resultado continue dentro
-        # da área territorial aproximada de SC.
-
         dentro_sc = (
-            -53.9 <= longitude <= -48.2
+            SC_LON_MIN
+            <=
+            longitude
+            <=
+            SC_LON_MAX
+
             and
-            -29.5 <= latitude <= -25.8
+
+            SC_LAT_MIN
+            <=
+            latitude
+            <=
+            SC_LAT_MAX
         )
 
 
@@ -2790,17 +2870,36 @@ resposta.raise_for_status()
         ).strip()
 
 
-        # Se o Photon informar o estado explicitamente,
-        # ele precisa ser Santa Catarina.
-        # Alguns registros menores não trazem "state";
-        # nesses casos, a bbox continua sendo a validação.
-
         if (
             estado
             and
             "santa catarina"
             not in
             estado.casefold()
+        ):
+
+            continue
+
+
+        pais = str(
+            propriedades.get(
+                "country",
+                ""
+            )
+            or
+            ""
+        ).strip()
+
+
+        if (
+            pais
+            and
+            pais.casefold()
+            not in
+            {
+                "brasil",
+                "brazil"
+            }
         ):
 
             continue
@@ -2851,6 +2950,29 @@ resposta.raise_for_status()
         )
 
 
+        chave_candidato = (
+            round(
+                latitude,
+                6
+            ),
+            round(
+                longitude,
+                6
+            ),
+            nome.casefold()
+        )
+
+
+        if chave_candidato in chaves_vistas:
+
+            continue
+
+
+        chaves_vistas.add(
+            chave_candidato
+        )
+
+
         candidatos_sc.append(
             {
                 "nome":
@@ -2875,7 +2997,16 @@ resposta.raise_for_status()
         )
 
 
+        if len(
+            candidatos_sc
+        ) >= 5:
+
+            break
+
+
     return candidatos_sc
+
+
 # ============================================================
 # SIDEBAR
 # ============================================================
@@ -3021,14 +3152,7 @@ with st.sidebar:
                 )
 
 
-        except Exception as erro:
-
-            print(
-                "ERRO_GEOCODIFICACAO:",
-                type(erro).__name__,
-                str(erro),
-                flush=True
-            )
+        except Exception:
 
             st.session_state[
                 "candidatos_origem"
@@ -3219,7 +3343,7 @@ with st.sidebar:
     st.caption(
         "Ao clicar em “Localizar endereço”, "
         "a consulta é enviada ao serviço de "
-        "geocodificação Nominatim/OpenStreetMap."
+        "geocodificação Photon/OpenStreetMap."
     )
 
 
@@ -4107,7 +4231,7 @@ if (
             **OpenStreetMap**  
             Base aberta da malha viária.
 
-            **Nominatim**  
+            **Photon**  
             Localização do endereço informado pelo usuário.
 
             **OSRM**  
@@ -5080,12 +5204,12 @@ with aba_dados:
     ):
 
         st.markdown(
-            "### OpenStreetMap + Nominatim + OSRM"
+            "### OpenStreetMap + Photon + OSRM"
         )
 
         st.write(
             "O OpenStreetMap fornece os dados da rede viária. "
-            "O Nominatim é usado para localizar o endereço "
+            "O Photon é usado para localizar o endereço "
             "informado pelo usuário. O OSRM é o mecanismo "
             "usado para estimar distâncias e tempos "
             "pelas estradas."
