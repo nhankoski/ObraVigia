@@ -2648,24 +2648,18 @@ def buscar_enderecos_em_sc(
         params={
             "q":
                 consulta,
-
+        
             "limit":
-                5,
+                10,
         
             "lang":
                 "pt",
-
-            "countrycode":
-                "BR",
         
             "lat":
                 -27.3,
         
             "lon":
                 -50.2,
-        
-            "zoom":
-                6,
         
             "location_bias_scale":
                 0.15
