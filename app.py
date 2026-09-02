@@ -2605,27 +2605,22 @@ ENDERECO_PADRAO_ORIGEM = (
 )
 
 
-NOMINATIM_URL = (
-    "https://nominatim.openstreetmap.org/search"
+PHOTON_URL = (
+    "https://photon.komoot.io/api/"
 )
 
 
-NOMINATIM_USER_AGENT = (
-    "ObraVigia/0.1 "
-    "(projeto de reuso de dados abertos - CGU)"
+PHOTON_USER_AGENT = (
+    "ObraVigia/1.0 "
+    "(https://github.com/nhankoski/ObraVigia)"
 )
 
 
-@st.cache_resource
-def controle_nominatim():
-
-    return {
-        "lock":
-            threading.Lock(),
-
-        "ultima_requisicao":
-            0.0
-    }
+# Limites aproximados de Santa Catarina:
+# minLon,minLat,maxLon,maxLat
+SC_BBOX = (
+    "-53.9,-29.5,-48.2,-25.8"
+)
 
 
 @st.cache_data(
@@ -2648,78 +2643,53 @@ def buscar_enderecos_em_sc(
         return []
 
 
-    controle = controle_nominatim()
+    resposta = requests.get(
+        PHOTON_URL,
+        params={
+            "q":
+                consulta,
 
+            "limit":
+                5,
 
-    with controle[
-        "lock"
-    ]:
+            "lang":
+                "pt",
 
-        agora = time.monotonic()
+            "countrycode":
+                "BR",
 
-        intervalo = (
-            agora
-            -
-            controle[
-                "ultima_requisicao"
-            ]
-        )
-
-
-        if intervalo < 1.1:
-
-            time.sleep(
-                1.1
-                -
-                intervalo
-            )
-
-
-        resposta = requests.get(
-            NOMINATIM_URL,
-            params={
-                "q":
-                    consulta,
-
-                "format":
-                    "jsonv2",
-
-                "addressdetails":
-                    1,
-
-                "limit":
-                    5,
-
-                "countrycodes":
-                    "br",
-
-                "accept-language":
-                    "pt-BR"
-            },
-            headers={
-                "User-Agent":
-                    NOMINATIM_USER_AGENT
-            },
-            timeout=15
-        )
-
-
-        controle[
-            "ultima_requisicao"
-        ] = time.monotonic()
+            "bbox":
+                SC_BBOX
+        },
+        headers={
+            "User-Agent":
+                PHOTON_USER_AGENT
+        },
+        timeout=15
+    )
 
 
     resposta.raise_for_status()
 
 
+    dados = (
+        resposta.json()
+        or
+        {}
+    )
+
+
     candidatos_sc = []
 
 
-    for item in resposta.json():
+    for item in dados.get(
+        "features",
+        []
+    ):
 
-        endereco = (
+        geometria = (
             item.get(
-                "address",
+                "geometry",
                 {}
             )
             or
@@ -2727,51 +2697,37 @@ def buscar_enderecos_em_sc(
         )
 
 
-        estado = str(
-            endereco.get(
-                "state",
-                ""
-            )
-        ).strip()
-
-
-        codigo_estado = str(
-            endereco.get(
-                "ISO3166-2-lvl4",
-                ""
-            )
-        ).strip()
-
-
-        eh_sc = (
-            codigo_estado.upper()
-            ==
-            "BR-SC"
-
-            or
-
-            estado.casefold()
-            ==
-            "santa catarina"
+        coordenadas = geometria.get(
+            "coordinates",
+            []
         )
 
 
-        if not eh_sc:
+        if (
+            not isinstance(
+                coordenadas,
+                list
+            )
+            or
+            len(
+                coordenadas
+            ) < 2
+        ):
 
             continue
 
 
         try:
 
-            latitude = float(
-                item[
-                    "lat"
+            longitude = float(
+                coordenadas[
+                    0
                 ]
             )
 
-            longitude = float(
-                item[
-                    "lon"
+            latitude = float(
+                coordenadas[
+                    1
                 ]
             )
 
@@ -2780,15 +2736,107 @@ def buscar_enderecos_em_sc(
             continue
 
 
+        # Segunda barreira:
+        # garante que o resultado continue dentro
+        # da área territorial aproximada de SC.
+
+        dentro_sc = (
+            -53.9 <= longitude <= -48.2
+            and
+            -29.5 <= latitude <= -25.8
+        )
+
+
+        if not dentro_sc:
+
+            continue
+
+
+        propriedades = (
+            item.get(
+                "properties",
+                {}
+            )
+            or
+            {}
+        )
+
+
+        estado = str(
+            propriedades.get(
+                "state",
+                ""
+            )
+            or
+            ""
+        ).strip()
+
+
+        # Se o Photon informar o estado explicitamente,
+        # ele precisa ser Santa Catarina.
+        # Alguns registros menores não trazem "state";
+        # nesses casos, a bbox continua sendo a validação.
+
+        if (
+            estado
+            and
+            "santa catarina"
+            not in
+            estado.casefold()
+        ):
+
+            continue
+
+
+        partes_nome = []
+
+
+        for chave in [
+            "name",
+            "street",
+            "housenumber",
+            "district",
+            "city",
+            "county",
+            "state",
+            "postcode",
+            "country"
+        ]:
+
+            valor = str(
+                propriedades.get(
+                    chave,
+                    ""
+                )
+                or
+                ""
+            ).strip()
+
+
+            if (
+                valor
+                and
+                valor not in partes_nome
+            ):
+
+                partes_nome.append(
+                    valor
+                )
+
+
+        nome = (
+            ", ".join(
+                partes_nome
+            )
+            if partes_nome
+            else consulta
+        )
+
+
         candidatos_sc.append(
             {
                 "nome":
-                    str(
-                        item.get(
-                            "display_name",
-                            consulta
-                        )
-                    ),
+                    nome,
 
                 "latitude":
                     latitude,
@@ -2797,17 +2845,19 @@ def buscar_enderecos_em_sc(
                     longitude,
 
                 "estado":
-                    estado,
+                    (
+                        estado
+                        or
+                        "Santa Catarina"
+                    ),
 
                 "codigo_estado":
-                    codigo_estado
+                    "BR-SC"
             }
         )
 
 
     return candidatos_sc
-
-
 # ============================================================
 # SIDEBAR
 # ============================================================
@@ -2956,7 +3006,7 @@ with st.sidebar:
         except Exception as erro:
 
             print(
-                "ERRO_NOMINATIM:",
+                "ERRO_GEOCODIFICACAO:",
                 type(erro).__name__,
                 str(erro),
                 flush=True
